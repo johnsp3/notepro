@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Box, CssBaseline, Toolbar, useMediaQuery, useTheme } from '@mui/material';
+import { Box, CssBaseline, Toolbar, useMediaQuery, useTheme, CircularProgress } from '@mui/material';
 import Header from './Header';
 import Sidebar from './Sidebar';
 import NotificationBar from './NotificationBar';
@@ -7,6 +7,8 @@ import { ProjectDialog } from '../projects';
 import { Project } from '../../types';
 import useNotification from '../../hooks/useNotification';
 import { NoteList, NoteEditor } from '../notes';
+import { useAuth } from '../../context/AuthContext';
+import { LoginPage } from '../auth';
 
 const DRAWER_WIDTH = 260;
 
@@ -15,6 +17,7 @@ const Layout: React.FC<{ children?: React.ReactNode }> = ({ children }) => {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [projectDialogOpen, setProjectDialogOpen] = useState(false);
   const [currentProject, setCurrentProject] = useState<Project | null>(null);
+  const { currentUser, isLoading } = useAuth();
   
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
@@ -42,6 +45,27 @@ const Layout: React.FC<{ children?: React.ReactNode }> = ({ children }) => {
     setProjectDialogOpen(true);
   };
 
+  // Show loading spinner while checking authentication
+  if (isLoading) {
+    return (
+      <Box sx={{ 
+        display: 'flex', 
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        height: '100vh',
+        backgroundColor: theme.palette.background.default
+      }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
+
+  // Show login page if not authenticated
+  if (!currentUser) {
+    return <LoginPage />;
+  }
+
+  // Show main app content if authenticated
   return (
     <Box sx={{ display: 'flex', height: '100vh' }}>
       <CssBaseline />

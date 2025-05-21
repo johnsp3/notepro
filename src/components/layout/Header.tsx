@@ -17,11 +17,13 @@ import {
   NoteAlt as NoteIcon,
   SmartToy as ChatGPTIcon,
   Settings as SettingsIcon,
-  Search as SearchIcon
+  Search as SearchIcon,
+  Logout as LogoutIcon
 } from '@mui/icons-material';
 import { ChatGPTDialog } from '../chatgpt';
 import SettingsDialog from '../settings/SettingsDialog';
 import { WebSearchDialog } from '../websearch';
+import { useAuth } from '../../context/AuthContext';
 
 interface HeaderProps {
   toggleSidebar: () => void;
@@ -34,6 +36,15 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar, onAddProject }) => {
   const [chatGPTOpen, setChatGPTOpen] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [webSearchOpen, setWebSearchOpen] = useState(false);
+  const { logOut, currentUser } = useAuth();
+
+  const handleSignOut = async () => {
+    try {
+      await logOut();
+    } catch (error) {
+      console.error('Failed to sign out:', error);
+    }
+  };
 
   return (
     <>
@@ -92,6 +103,18 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar, onAddProject }) => {
           </Box>
 
           <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            {currentUser && (
+              <Box sx={{ 
+                display: 'flex', 
+                alignItems: 'center',
+                mr: 2,
+                color: theme.palette.text.secondary,
+                fontSize: '0.875rem'
+              }}>
+                {!isMobile && currentUser.email}
+              </Box>
+            )}
+            
             <Tooltip title="Settings">
               <IconButton 
                 color="inherit" 
@@ -145,10 +168,20 @@ const Header: React.FC<HeaderProps> = ({ toggleSidebar, onAddProject }) => {
                 borderRadius: '24px',
                 px: isMobile ? 2 : 3,
                 py: 1,
+                mr: 2
               }}
             >
               {!isMobile && "New Project"}
             </Button>
+            
+            <Tooltip title="Sign Out">
+              <IconButton 
+                color="inherit" 
+                onClick={handleSignOut}
+              >
+                <LogoutIcon />
+              </IconButton>
+            </Tooltip>
           </Box>
         </Toolbar>
       </AppBar>
