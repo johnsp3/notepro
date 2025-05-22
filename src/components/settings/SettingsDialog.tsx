@@ -16,6 +16,7 @@ import {
   useMediaQuery,
   useTheme as useMuiTheme,
   Tooltip,
+  Alert,
 } from '@mui/material';
 import {
   Close as CloseIcon,
@@ -26,6 +27,7 @@ import {
   Apple as AppleIcon,
   Style as StyleIcon,
   SmartToy as AIIcon,
+  Info as InfoIcon,
 } from '@mui/icons-material';
 import { useTheme } from '../../context/ThemeContext';
 import { useChatGPT } from '../../context/ChatGPTContext';
@@ -53,6 +55,9 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose }) => {
   
   // Check if env API key is available
   const envApiKeyAvailable = !!getOptionalEnvVar('REACT_APP_OPENAI_API_KEY');
+  
+  // Determine if toggling to built-in key is allowed
+  const canToggleToBuiltIn = apiKey.trim().length > 0 || useEnvApiKey;
 
   const handleThemeModeChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setThemeMode(event.target.value as 'light' | 'dark' | 'system');
@@ -69,6 +74,12 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose }) => {
   // Handle API key preference change
   const handleApiKeyPrefChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = event.target.checked;
+    
+    // If trying to turn ON built-in key but has no personal key
+    if (newValue && !apiKey.trim() && !useEnvApiKey) {
+      return; // Don't allow the toggle
+    }
+    
     setUseEnvApiKey(newValue);
     localStorage.setItem(USE_API_ENV_KEY, newValue.toString());
   };
@@ -106,9 +117,11 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose }) => {
           
           <Box sx={{ mt: 2, pl: 1 }}>
             <Tooltip title={
-              envApiKeyAvailable 
-                ? "Use the app's environment variable API key instead of manually entering your own" 
-                : "No environment API key is configured"
+              !envApiKeyAvailable 
+                ? "No environment API key is configured"
+                : !canToggleToBuiltIn && !useEnvApiKey
+                  ? "You need to enter your own API key before you can switch back"
+                  : "Use the app's environment variable API key instead of manually entering your own"
             }>
               <FormControlLabel
                 control={
@@ -116,12 +129,22 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose }) => {
                     checked={useEnvApiKey}
                     onChange={handleApiKeyPrefChange}
                     color="primary"
-                    disabled={!envApiKeyAvailable}
+                    disabled={!envApiKeyAvailable || (!canToggleToBuiltIn && !useEnvApiKey)}
                   />
                 }
                 label="Use app's built-in API key"
               />
             </Tooltip>
+            
+            {!useEnvApiKey && !apiKey && (
+              <Alert 
+                severity="warning" 
+                sx={{ mt: 1, mb: 1 }}
+                icon={<InfoIcon />}
+              >
+                You need to enter your own API key in the AI Assistant before you can switch back to the built-in key.
+              </Alert>
+            )}
             
             <Typography variant="body2" color="text.secondary" sx={{ mt: 1, mb: 2, pl: 2 }}>
               {useEnvApiKey && envApiKeyAvailable 
