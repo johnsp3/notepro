@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -15,6 +15,7 @@ import {
   Divider,
   useMediaQuery,
   useTheme as useMuiTheme,
+  Tooltip,
 } from '@mui/material';
 import {
   Close as CloseIcon,
@@ -24,18 +25,34 @@ import {
   AutoAwesome as AutoAwesomeIcon,
   Apple as AppleIcon,
   Style as StyleIcon,
+  SmartToy as AIIcon,
 } from '@mui/icons-material';
 import { useTheme } from '../../context/ThemeContext';
+import { useChatGPT } from '../../context/ChatGPTContext';
+import { getOptionalEnvVar } from '../../utils/env';
 
 interface SettingsDialogProps {
   open: boolean;
   onClose: () => void;
 }
 
+// Local storage key for API key preference
+const USE_API_ENV_KEY = 'notepro-use-env-api-key';
+
 const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose }) => {
   const muiTheme = useMuiTheme();
   const fullScreen = useMediaQuery(muiTheme.breakpoints.down('sm'));
   const { settings, setThemeMode, setThemeVariant, toggleFollowSystem } = useTheme();
+  const { apiKey } = useChatGPT();
+  
+  // State for the API key toggle
+  const [useEnvApiKey, setUseEnvApiKey] = useState<boolean>(() => {
+    const savedPref = localStorage.getItem(USE_API_ENV_KEY);
+    return savedPref ? savedPref === 'true' : true; // Default to true
+  });
+  
+  // Check if env API key is available
+  const envApiKeyAvailable = !!getOptionalEnvVar('REACT_APP_OPENAI_API_KEY');
 
   const handleThemeModeChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     setThemeMode(event.target.value as 'light' | 'dark' | 'system');
@@ -48,6 +65,18 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose }) => {
   const handleSystemFollowChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     toggleFollowSystem();
   };
+  
+  // Handle API key preference change
+  const handleApiKeyPrefChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const newValue = event.target.checked;
+    setUseEnvApiKey(newValue);
+    localStorage.setItem(USE_API_ENV_KEY, newValue.toString());
+  };
+  
+  // Save API key preference to localStorage
+  useEffect(() => {
+    localStorage.setItem(USE_API_ENV_KEY, useEnvApiKey.toString());
+  }, [useEnvApiKey]);
 
   return (
     <Dialog
@@ -69,6 +98,44 @@ const SettingsDialog: React.FC<SettingsDialogProps> = ({ open, onClose }) => {
         </Box>
       </DialogTitle>
       <DialogContent dividers>
+        {/* ChatGPT API Key Settings */}
+        <Box sx={{ mb: 4 }}>
+          <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center' }}>
+            <AIIcon sx={{ mr: 1 }} /> AI Assistant Settings
+          </Typography>
+          
+          <Box sx={{ mt: 2, pl: 1 }}>
+            <Tooltip title={
+              envApiKeyAvailable 
+                ? "Use the app's environment variable API key instead of manually entering your own" 
+                : "No environment API key is configured"
+            }>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={useEnvApiKey}
+                    onChange={handleApiKeyPrefChange}
+                    color="primary"
+                    disabled={!envApiKeyAvailable}
+                  />
+                }
+                label="Use app's built-in API key"
+              />
+            </Tooltip>
+            
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 1, mb: 2, pl: 2 }}>
+              {useEnvApiKey && envApiKeyAvailable 
+                ? "Using the app's built-in API key. You don't need to provide your own."
+                : apiKey 
+                  ? "Using your manually entered API key."
+                  : "No API key provided. Please enter your OpenAI API key in the AI Assistant."
+              }
+            </Typography>
+          </Box>
+        </Box>
+
+        <Divider sx={{ my: 3 }} />
+        
         <Box sx={{ mb: 4 }}>
           <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center' }}>
             <StyleIcon sx={{ mr: 1 }} /> Theme Variant

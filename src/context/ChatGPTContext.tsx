@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useCallback, ReactNode, use
 import { ChatMessage, callOpenAI, processNoteWithAI } from '../services/openai';
 import { useAppContext } from './AppContext';
 import { TextBlock } from '../types';
+import { getOptionalEnvVar } from '../utils/env';
 
 // Interface for the context
 interface ChatGPTContextType {
@@ -27,8 +28,9 @@ const DEFAULT_SYSTEM_MESSAGE = {
 // Create context with default values
 const ChatGPTContext = createContext<ChatGPTContextType | undefined>(undefined);
 
-// LocalStorage key for API key
+// LocalStorage keys
 const API_KEY_STORAGE_KEY = 'notepro-openai-api-key';
+const USE_API_ENV_KEY = 'notepro-use-env-api-key';
 
 // Provider component
 export const ChatGPTProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
@@ -39,12 +41,19 @@ export const ChatGPTProvider: React.FC<{ children: ReactNode }> = ({ children })
   const [error, setError] = useState<string | null>(null);
   const [debugInfo, setDebugInfo] = useState<any | null>(null);
   const [showDebugInfo, setShowDebugInfo] = useState<boolean>(false);
+  const [useEnvApiKey, setUseEnvApiKey] = useState<boolean>(true);
 
-  // Load API key from localStorage on initialization
+  // Load preferences from localStorage on initialization
   useEffect(() => {
     const savedApiKey = localStorage.getItem(API_KEY_STORAGE_KEY);
+    const savedApiKeyPref = localStorage.getItem(USE_API_ENV_KEY);
+    
     if (savedApiKey) {
       setApiKeyState(savedApiKey);
+    }
+    
+    if (savedApiKeyPref !== null) {
+      setUseEnvApiKey(savedApiKeyPref === 'true');
     }
   }, []);
 
@@ -53,6 +62,18 @@ export const ChatGPTProvider: React.FC<{ children: ReactNode }> = ({ children })
     setApiKeyState(key);
     localStorage.setItem(API_KEY_STORAGE_KEY, key);
   }, []);
+
+  // Get the effective API key based on preferences
+  const getEffectiveApiKey = useCallback(() => {
+    // If using environment variable and it's available, use it
+    if (useEnvApiKey) {
+      const envKey = getOptionalEnvVar('REACT_APP_OPENAI_API_KEY');
+      if (envKey) return envKey;
+    }
+    
+    // Otherwise fall back to user-provided key
+    return apiKey;
+  }, [apiKey, useEnvApiKey]);
 
   // Add user message and get response
   const addUserMessage = useCallback(async (message: string) => {
@@ -67,9 +88,10 @@ export const ChatGPTProvider: React.FC<{ children: ReactNode }> = ({ children })
     
     setIsLoading(true);
     
-    // Call OpenAI API
+    // Call OpenAI API with effective API key
     const newMessages = [...chatMessages, userMessage];
-    const result = await callOpenAI(newMessages, apiKey);
+    const effectiveApiKey = getEffectiveApiKey();
+    const result = await callOpenAI(newMessages, effectiveApiKey);
     
     setIsLoading(false);
     
@@ -84,7 +106,7 @@ export const ChatGPTProvider: React.FC<{ children: ReactNode }> = ({ children })
       setError(result.error || 'Failed to get response from OpenAI');
       setDebugInfo(result.debug);
     }
-  }, [chatMessages, apiKey]);
+  }, [chatMessages, getEffectiveApiKey]);
 
   // Clear chat history
   const clearChat = useCallback(() => {
@@ -100,8 +122,9 @@ export const ChatGPTProvider: React.FC<{ children: ReactNode }> = ({ children })
 
   // Process current note with AI
   const processCurrentNote = useCallback(async (instruction: string) => {
-    if (!apiKey) {
-      setError('API key is required. Please add your API key in settings.');
+    const effectiveApiKey = getEffectiveApiKey();
+    if (!effectiveApiKey) {
+      setError('API key is required. Please add your API key in settings or enable the built-in API key.');
       return;
     }
 
@@ -115,7 +138,7 @@ export const ChatGPTProvider: React.FC<{ children: ReactNode }> = ({ children })
     setError(null);
 
     try {
-      const result = await processNoteWithAI(activeNote, instruction, apiKey);
+      const result = await processNoteWithAI(activeNote, instruction, effectiveApiKey);
       
       if (result.success && result.content) {
         // Update the note content with the AI-processed content
@@ -148,7 +171,7 @@ export const ChatGPTProvider: React.FC<{ children: ReactNode }> = ({ children })
     } finally {
       setIsLoading(false);
     }
-  }, [apiKey, state.notes, state.activeNote, dispatch]);
+  }, [getEffectiveApiKey, state.notes, state.activeNote, dispatch]);
 
   return (
     <ChatGPTContext.Provider value={{
