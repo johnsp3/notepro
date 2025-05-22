@@ -27,6 +27,12 @@ export interface ChatMessage {
   content: string;
 }
 
+// Function to validate OpenAI API key format
+const isValidApiKeyFormat = (key: string): boolean => {
+  // OpenAI keys start with 'sk-' and are typically ~50 chars
+  return key.startsWith('sk-') && key.length > 20;
+};
+
 // Function to call OpenAI API
 export async function callOpenAI(
   messages: ChatMessage[],
@@ -44,6 +50,12 @@ export async function callOpenAI(
     if (!effectiveApiKey) {
       console.error('[OpenAI Service] No API key provided');
       return { success: false, error: 'API key is required. Please add your API key in settings or configure it in the environment.' };
+    }
+
+    // Validate API key format
+    if (!isValidApiKeyFormat(effectiveApiKey)) {
+      console.error('[OpenAI Service] Invalid API key format');
+      return { success: false, error: 'Invalid API key format. OpenAI keys start with "sk-" and must be a complete key.' };
     }
 
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
